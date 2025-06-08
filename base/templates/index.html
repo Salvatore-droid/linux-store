@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <!-- Hero Section -->
+    <section class="text-center py-12 md:py-20 animate-fade-in">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6 gradient-text animate-float">
+                PY-STore
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-600 mb-8">
+                The easiest way to discover and install Linux applications
+            </p>
+            
+            <!-- Search Form -->
+            <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-1 card-hover transition-all duration-300">
+                <form method="post" class="flex">
+                    {% csrf_token %}
+                    <input type="text" name="app_name" 
+                           class="flex-grow px-6 py-4 focus:outline-none text-gray-700" 
+                           placeholder="Search for apps (e.g. Spotify, Slack, WPS Office)">
+                    <button type="submit" 
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 transition-colors duration-300 flex items-center">
+                        <i class="fas fa-search mr-2"></i> Search
+                    </button>
+                </form>
+            </div>
+            
+            <p class="mt-4 text-gray-500 text-sm">
+                Type 'quit' to exit | v1.0
+            </p>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-12">
+        <div class="grid md:grid-cols-3 gap-8">
+            <!-- Feature 1 -->
+            <div class="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 card-hover animate-fade-in delay-100">
+                <div class="text-indigo-600 mb-4 text-3xl">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-3 text-gray-800">Quick Install</h3>
+                <p class="text-gray-600">
+                    Install applications with a single click. No need for complex terminal commands.
+                </p>
+            </div>
+            
+            <!-- Feature 2 -->
+            <div class="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 card-hover animate-fade-in delay-200">
+                <div class="text-green-500 mb-4 text-3xl">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-3 text-gray-800">Verified Apps</h3>
+                <p class="text-gray-600">
+                    All applications are verified and safe to install from trusted sources.
+                </p>
+            </div>
+            
+            <!-- Feature 3 -->
+            <div class="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 card-hover animate-fade-in">
+                <div class="text-purple-500 mb-4 text-3xl">
+                    <i class="fas fa-rocket"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-3 text-gray-800">Automatic Updates</h3>
+                <p class="text-gray-600">
+                    Your installed apps stay up-to-date automatically with our system.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Popular Apps Section -->
+    <section class="py-12">
+        <h2 class="text-2xl font-bold mb-8 text-gray-800">Popular Applications</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <!-- App 1 -->
+            <a href="#" class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center card-hover">
+                <div class="w-16 h-16 bg-indigo-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fas fa-music text-indigo-600 text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-center">Spotify</span>
+            </a>
+            
+            <!-- App 2 -->
+            <a href="#" class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center card-hover">
+                <div class="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fab fa-slack text-blue-600 text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-center">Slack</span>
+            </a>
+            
+            <!-- App 3 -->
+            <a href="#" class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center card-hover">
+                <div class="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fas fa-file-alt text-red-600 text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-center">WPS Office</span>
+            </a>
+            
+            <!-- App 4 -->
+            <a href="#" class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center card-hover">
+                <div class="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fas fa-code text-purple-600 text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-center">VS Code</span>
+            </a>
+            
+            <!-- App 5 -->
+            <a href="#" class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center card-hover">
+                <div class="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fab fa-chrome text-green-600 text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-center">Chrome</span>
+            </a>
+            
+            <!-- App 6 -->
+            <a href="#" class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center card-hover">
+                <div class="w-16 h-16 bg-yellow-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fas fa-film text-yellow-600 text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-center">VLC</span>
+            </a>
+        </div>
+    </section>
+{% endblock %}

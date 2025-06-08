@@ -1,0 +1,8 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.home, name='home'),
+    path('install/', views.install, name='install'),
+    path('check-flatpak/', views.check_flatpak, name='check_flatpak'),
+]
