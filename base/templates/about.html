@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <!-- Hero Section -->
+    <section class="text-center py-12 md:py-20 animate-fade-in">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6 gradient-text animate-float">
+                About PY-STore
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-600 mb-8">
+                Revolutionizing Linux software management with simplicity and elegance
+            </p>
+        </div>
+    </section>
+
+    <!-- Mission Section -->
+    <section class="py-12">
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden card-hover transition-all duration-300">
+            <div class="md:flex">
+                <div class="p-8">
+                    <div class="uppercase tracking-wide text-sm text-indigo-600 font-semibold mb-1">Our Mission</div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Making Linux software accessible to everyone</h2>
+                    <p class="mt-2 text-gray-600">
+                        PY-STore was born out of frustration with the fragmented Linux software ecosystem. 
+                        Our goal is to provide a unified, user-friendly interface for discovering, installing, 
+                        and managing applications across all major Linux distributions.
+                    </p>
+                </div>
+                <div class="md:flex-shrink-0 bg-indigo-50 flex items-center justify-center p-8">
+                    <i class="fas fa-bullseye text-indigo-600 text-6xl"></i>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Team Section -->
+    <section class="py-12">
+        <h2 class="text-2xl font-bold mb-8 text-gray-800">The Team Behind PY-STore</h2>
+        <div class="grid md:grid-cols-3 gap-8">
+            <!-- Team Member 1 -->
+            <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 card-hover">
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fas fa-user-astronaut text-indigo-600 text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Genius</h3>
+                        <p class="text-sm text-gray-600">Founder & Lead Developer</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm">
+                    Linux enthusiast with over 8 years of experience in system administration and Python development.
+                    Created PY-STore to solve the software management challenges he faced daily.
+                </p>
+                <div class="mt-4 flex space-x-3">
+                    <a href="#" class="text-gray-500 hover:text-indigo-600">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a href="#" class="text-gray-500 hover:text-indigo-600">
+                        <i class="fab fa-twitter"></i>
+                    </a>
+                </div>
+            </div>
+            
+
+            {% comment %}
+            <!-- Team Member 2 -->
+            <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 card-hover">
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fas fa-user-ninja text-blue-600 text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Salvatore-droid</h3>
+                        <p class="text-sm text-gray-600">UI/UX Designer</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm">
+                    Design specialist focused on creating intuitive user experiences. Ensures PY-STore remains 
+                    accessible to both technical and non-technical users alike.
+                </p>
+                <div class="mt-4 flex space-x-3">
+                    <a href="#" class="text-gray-500 hover:text-indigo-600">
+                        <i class="fab fa-dribbble"></i>
+                    </a>
+                    <a href="#" class="text-gray-500 hover:text-indigo-600">
+                        <i class="fab fa-behance"></i>
+                    </a>
+                </div>
+            </div>
+            {% endcomment %}
+            
+            <!-- Team Member 3 -->
+            <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 card-hover">
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fas fa-robot text-green-600 text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Community</h3>
+                        <p class="text-sm text-gray-600">Contributors & Support</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm">
+                    Our amazing community of open-source contributors who help maintain packages, fix bugs, 
+                    and suggest new features to make PY-STore better every day.
+                </p>
+                <div class="mt-4 flex space-x-3">
+                    <a href="#" class="text-gray-500 hover:text-indigo-600">
+                        <i class="fab fa-gitlab"></i>
+                    </a>
+                    <a href="#" class="text-gray-500 hover:text-indigo-600">
+                        <i class="fab fa-discord"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology Stack -->
+    <section class="py-12">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold mb-8 text-gray-800">Our Technology Stack</h2>
+            <div class="bg-white rounded-xl shadow-sm p-8 card-hover">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+                    <!-- Tech 1 -->
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center mr-4">
+                            <i class="fab fa-python text-indigo-600 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium text-gray-800">Python</h3>
+                            <p class="text-sm text-gray-600">Backend</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tech 2 -->
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mr-4">
+                            <i class="fab fa-html5 text-blue-600 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium text-gray-800">HTML/CSS/JS</h3>
+                            <p class="text-sm text-gray-600">Frontend</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tech 3 -->
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center mr-4">
+                            <i class="fab fa-linux text-green-600 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium text-gray-800">Linux</h3>
+                            <p class="text-sm text-gray-600">Platform</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tech 4 -->
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center mr-4">
+                            <i class="fas fa-database text-red-600 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium text-gray-800">SQLite</h3>
+                            <p class="text-sm text-gray-600">Database</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tech 5 -->
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center mr-4">
+                            <i class="fab fa-git-alt text-purple-600 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium text-gray-800">Git</h3>
+                            <p class="text-sm text-gray-600">Version Control</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tech 6 -->
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center mr-4">
+                            <i class="fas fa-server text-yellow-600 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium text-gray-800">Django</h3>
+                            <p class="text-sm text-gray-600">Web Framework</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="py-12 text-center">
+        <div class="max-w-2xl mx-auto bg-indigo-600 rounded-xl shadow-lg overflow-hidden p-8 text-white">
+            <h2 class="text-2xl font-bold mb-4">Ready to transform your Linux experience?</h2>
+            <p class="mb-6 opacity-90">
+                Join thousands of users who have simplified their software management with PY-STore
+            </p>
+            <a href="#" class="inline-block bg-white text-indigo-600 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors duration-300">
+                Get Started Now
+            </a>
+        </div>
+    </section>
+{% endblock %}
+
