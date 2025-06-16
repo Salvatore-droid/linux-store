@@ -131,16 +131,27 @@ class PyStore:
             return []
 
     @staticmethod
-    def get_app_info(app_id):
+    def get_installed_app_info(app_id):
+        """Get actual installed app information"""
         try:
+            import subprocess
             result = subprocess.run(
-                ["flatpak", "info", app_id, "--log"],
+                ['flatpak', 'info', app_id],
                 capture_output=True,
-                text=True,
-                check=True
+                text=True
             )
-            return result.stdout
-        except subprocess.CalledProcessError:
+            
+            if result.returncode != 0:
+                return None
+                
+            info = {}
+            for line in result.stdout.split('\n'):
+                if ':' in line:
+                    key, val = line.split(':', 1)
+                    info[key.strip().lower()] = val.strip()
+            
+            return info
+        except:
             return None
 
     @staticmethod

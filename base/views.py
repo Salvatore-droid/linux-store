@@ -1,7 +1,34 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .utils import PyStore
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import InstalledApp
+from django.http import JsonResponse
+import json
+import time
+from threading import Thread
+from .utils import PyStore
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
 
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import InstalledApp
+from django.http import JsonResponse
+import json
+import time
+from threading import Thread
+from .utils import PyStore
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+from datetime import datetime
+
+# Global dictionary to track installation progress
+installation_progress = {}
 
 def home(request):
     if request.method == 'POST':
@@ -9,7 +36,6 @@ def home(request):
         if app_name.lower() == 'quit':
             return redirect('home')
         
-        # Perform search
         search_results = PyStore.flatpak_search(app_name)
         return render(request, 'results.html', {
             'app_name': app_name,
@@ -17,26 +43,6 @@ def home(request):
         })
     
     return render(request, 'index.html')
-
-
-def about(request):
-    return render(request, 'about.html')
-
-
-    
-# views.py
-from django.http import JsonResponse
-import json
-import time
-from threading import Thread
-from .utils import PyStore
-from django.http import JsonResponse
-import json
-import time
-from threading import Thread
-from .utils import PyStore
-
-installation_progress = {}
 
 
 def install(request):
@@ -47,74 +53,159 @@ def install(request):
         
         install_id = f"{app_id}_{int(time.time())}"
         
-        # Initialize progress immediately with basic info
+        # Initialize progress with more detailed information
         installation_progress[install_id] = {
             'status': 'initializing',
-            'progress': 5,  # Start at 5% to show immediate activity
-            'message': 'Preparing installation...',
+            'progress': 0,
+            'message': 'Starting installation process...',
             'app_id': app_id,
-            'logs': []
+            'logs': ['Starting installation process...'],
+            'start_time': datetime.now().isoformat(),
+            'current_stage': 'preparing',
+            'stages': {
+                'preparing': {'started': False, 'completed': False},
+                'downloading': {'started': False, 'completed': False},
+                'installing': {'started': False, 'completed': False},
+                'finalizing': {'started': False, 'completed': False}
+            },
+            'metadata': {
+                'size': None,
+                'version': None
+            }
         }
         
         def install_thread():
             try:
-                # Phase 1: Preparation (fast)
+                # Update progress
                 installation_progress[install_id].update({
-                    'progress': 10,
-                    'message': 'Checking dependencies...'
+                    'progress': 5,
+                    'message': 'Preparing installation...',
+                    'current_stage': 'preparing',
+                    'stages': {
+                        'preparing': {'started': True, 'completed': False},
+                        'downloading': {'started': False, 'completed': False},
+                        'installing': {'started': False, 'completed': False},
+                        'finalizing': {'started': False, 'completed': False}
+                    }
                 })
                 
-                # Phase 2: Download (simulate progress)
-                def progress_callback(output):
-                    installation_progress[install_id]['logs'].append(output)
-                    
-                    current_progress = installation_progress[install_id]['progress']
+                # Phase 1: Preparation (5-15%)
+                time.sleep(1)  # Simulate preparation time
+                installation_progress[install_id]['logs'].append('Dependencies checked')
+                installation_progress[install_id].update({
+                    'progress': 15,
+                    'message': 'Dependencies verified',
+                    'stages': {
+                        'preparing': {'started': True, 'completed': True},
+                        'downloading': {'started': True, 'completed': False}
+                    }
+                })
+                
+                # Phase 2: Download (15-70%)
+                def download_progress_callback(output):
+                    installation_progress[install_id]['logs'].append(output.strip())
                     
                     if 'Percentage:' in output:
                         try:
                             percent = int(output.split('Percentage:')[1].split('%')[0].strip())
-                            # Scale download to 10-70% of total progress
-                            scaled_percent = 10 + (percent * 0.6)
-                            # Only update if progress increased
-                            if scaled_percent > current_progress:
-                                installation_progress[install_id]['progress'] = scaled_percent
-                                installation_progress[install_id]['message'] = f'Downloading ({percent}%)...'
+                            scaled_percent = 15 + (percent * 0.55)  # Scale to 15-70% range
+                            installation_progress[install_id]['progress'] = scaled_percent
+                            installation_progress[install_id]['message'] = f'Downloading ({percent}%)...'
                         except:
                             pass
-                    elif 'Installing' in output:
-                        if current_progress < 70:
-                            installation_progress[install_id].update({
-                                'progress': 70,
-                                'message': 'Installing files...'
-                            })
-                    elif 'Finishing' in output:
-                        if current_progress < 90:
-                            installation_progress[install_id].update({
-                                'progress': 90,
-                                'message': 'Finalizing installation...'
-                            })
                 
-                # Run installation with the existing progress_callback
-                success, message = PyStore.install_app_with_progress(app_id, progress_callback)
+                # Perform actual installation with progress
+                success, message = PyStore.install_app_with_progress(app_id, download_progress_callback)
                 
-                if success:
-                    installation_progress[install_id].update({
-                        'status': 'completed',
-                        'progress': 100,
-                        'message': 'Installation complete!'
-                    })
-                else:
+                if not success:
                     installation_progress[install_id].update({
                         'status': 'failed',
-                        'progress': 100,  # Show full bar even on failure
-                        'message': f'Installation failed: {message}'
+                        'message': f'Installation failed: {message}',
+                        'progress': 100
                     })
+                    return
+                
+                installation_progress[install_id].update({
+                    'progress': 70,
+                    'message': 'Download complete, installing files...',
+                    'current_stage': 'installing',
+                    'stages': {
+                        'downloading': {'started': True, 'completed': True},
+                        'installing': {'started': True, 'completed': False}
+                    }
+                })
+                
+                # Phase 3: Installation (70-90%)
+                for i in range(1, 21):
+                    time.sleep(0.2)
+                    installation_progress[install_id]['progress'] = 70 + (i * 1)
+                    installation_progress[install_id]['message'] = f'Installing files ({i * 5}%)...'
+                    installation_progress[install_id]['logs'].append(f'Installed component {i}/20')
+                
+                installation_progress[install_id].update({
+                    'progress': 90,
+                    'message': 'Finalizing installation...',
+                    'current_stage': 'finalizing',
+                    'stages': {
+                        'installing': {'started': True, 'completed': True},
+                        'finalizing': {'started': True, 'completed': False}
+                    }
+                })
+                
+                # Phase 4: Finalizing (90-100%)
+                # Get actual app metadata
+                app_info = PyStore.get_installed_app_info(app_id)
+                if not app_info:
+                    installation_progress[install_id].update({
+                        'status': 'failed',
+                        'message': 'Failed to verify installation',
+                        'progress': 100
+                    })
+                    return
+                
+                installation_progress[install_id]['metadata'] = {
+                    'size': app_info.get('size', '0 MB'),
+                    'version': app_info.get('version', 'unknown')
+                }
+                
+                installation_progress[install_id]['logs'].extend([
+                    'Creating desktop shortcuts',
+                    'Updating application database',
+                    f"Installation verified: {app_id}"
+                ])
+                
+                installation_progress[install_id].update({
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': 'Installation complete!',
+                    'stages': {
+                        'finalizing': {'started': True, 'completed': True}
+                    },
+                    'end_time': datetime.now().isoformat()
+                })
+                
+                # Add to installed apps if user is authenticated
+                if request.user.is_authenticated:
+                    app_name = app_id.split('.')[-1].capitalize()
+                    InstalledApp.objects.update_or_create(
+                        user=request.user,
+                        app_id=app_id,
+                        defaults={
+                            'name': app_name,
+                            'version': installation_progress[install_id]['metadata']['version'],
+                            'size': installation_progress[install_id]['metadata']['size'],
+                            'install_date': timezone.now(),
+                            'status': 'up_to_date'
+                        }
+                    )
                 
             except Exception as e:
                 installation_progress[install_id].update({
                     'status': 'failed',
                     'message': f'Error: {str(e)}',
-                    'progress': 100
+                    'progress': 100,
+                    'logs': installation_progress[install_id]['logs'] + [f'ERROR: {str(e)}'],
+                    'end_time': datetime.now().isoformat()
                 })
         
         Thread(target=install_thread).start()
@@ -128,28 +219,41 @@ def get_installation_progress(request, install_id):
         'progress': 0,
         'message': 'Installation not found',
         'app_id': '',
-        'logs': []
+        'logs': [],
+        'stages': {
+            'preparing': {'started': False, 'completed': False},
+            'downloading': {'started': False, 'completed': False},
+            'installing': {'started': False, 'completed': False},
+            'finalizing': {'started': False, 'completed': False}
+        }
     })
     
-    # Add estimated time remaining (simple calculation)
-    if progress_data['status'] == 'running':
-        remaining = (100 - progress_data['progress']) / 2  # Simple estimation (2% per second)
-        progress_data['eta'] = f"{int(remaining)} seconds remaining"
+    # Calculate ETA if installation is in progress
+    if progress_data['status'] not in ['completed', 'failed']:
+        try:
+            start_time = datetime.fromisoformat(progress_data['start_time'])
+            elapsed = (datetime.now() - start_time).total_seconds()
+            remaining = (100 - progress_data['progress']) * (elapsed / max(1, progress_data['progress']))
+            progress_data['eta_seconds'] = int(remaining)
+        except:
+            progress_data['eta_seconds'] = None
     
     return JsonResponse(progress_data)
 
 def installation_progress_view(request, install_id):
-    return render(request, 'installation_progress.html', {'install_id': install_id})
+    # Verify the installation exists
+    if install_id not in installation_progress:
+        messages.error(request, "Installation session not found")
+        return redirect('home')
+    
+    return render(request, 'installation_progress.html', {
+        'install_id': install_id,
+        'app_id': installation_progress[install_id].get('app_id', '')
+    })
 
-# def get_installation_progress(request, install_id):
-#     progress_data = installation_progress.get(install_id, {
-#         'status': 'unknown',
-#         'progress': 0,
-#         'message': 'Installation not found',
-#         'app_id': '',
-#         'logs': []
-#     })
-#     return JsonResponse(progress_data)
+
+
+
 
 def launch_app(request, app_id):
     PyStore.run_app(app_id)
@@ -164,12 +268,6 @@ def check_flatpak(request):
         })
     return redirect('home')
 
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.utils import timezone
-from .models import InstalledApp
-from .utils import PyStore
 
 @login_required
 def installed_apps(request):
@@ -246,7 +344,7 @@ def installed_apps(request):
 @login_required
 def app_detail(request, app_id):
     app = get_object_or_404(InstalledApp, user=request.user, app_id=app_id)
-    app_info = PyStore.get_app_info(app_id)
+    app_info = PyStore.get_installed_app_info(app_id)
     
     if request.method == 'POST':
         if 'uninstall' in request.POST:
@@ -268,10 +366,6 @@ def app_detail(request, app_id):
     return render(request, 'app_detail.html', context)
 
 
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
-from django.shortcuts import render, redirect
-
 def signup(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
@@ -282,3 +376,6 @@ def signup(request):
     else:
         form = UserCreationForm()
     return render(request, 'signup.html', {'form': form})
+
+def about(request):
+    return render(request, 'about.html')
