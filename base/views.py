@@ -39,11 +39,16 @@ def home(request):
         search_results = PyStore.flatpak_search(app_name)
         return render(request, 'results.html', {
             'app_name': app_name,
-            'search_results': search_results
+            'search_results': search_results,  # Now this is a list of dictionaries
+            'has_results': len(search_results) > 0
         })
     
     return render(request, 'index.html')
 
+
+# views.py - Updated install function with real progress
+
+# views.py - Updated install function with proper success/failure handling
 
 def install(request):
     if request.method == 'POST':
@@ -53,7 +58,7 @@ def install(request):
         
         install_id = f"{app_id}_{int(time.time())}"
         
-        # Initialize progress with more detailed information
+        # Initialize progress with real tracking
         installation_progress[install_id] = {
             'status': 'initializing',
             'progress': 0,
@@ -71,13 +76,18 @@ def install(request):
             'metadata': {
                 'size': None,
                 'version': None
-            }
+            },
+            'download_progress': 0,
+            'total_download_size': None,
+            'downloaded_size': None,
+            'install_details': {}
         }
         
         def install_thread():
             try:
-                # Update progress
+                # Update progress - preparation started
                 installation_progress[install_id].update({
+                    'status': 'preparing',
                     'progress': 5,
                     'message': 'Preparing installation...',
                     'current_stage': 'preparing',
@@ -89,96 +99,136 @@ def install(request):
                     }
                 })
                 
-                # Phase 1: Preparation (5-15%)
-                time.sleep(1)  # Simulate preparation time
-                installation_progress[install_id]['logs'].append('Dependencies checked')
+                installation_progress[install_id]['logs'].append('Checking dependencies...')
+                time.sleep(0.5)
+                
                 installation_progress[install_id].update({
-                    'progress': 15,
-                    'message': 'Dependencies verified',
+                    'status': 'downloading',
+                    'progress': 10,
+                    'message': 'Starting download...',
                     'stages': {
                         'preparing': {'started': True, 'completed': True},
-                        'downloading': {'started': True, 'completed': False}
+                        'downloading': {'started': True, 'completed': False},
+                        'installing': {'started': False, 'completed': False},
+                        'finalizing': {'started': False, 'completed': False}
                     }
                 })
                 
-                # Phase 2: Download (15-70%)
-                def download_progress_callback(output):
-                    installation_progress[install_id]['logs'].append(output.strip())
+                # Phase 2: Download with real progress from flatpak
+                def progress_callback(line):
+                    current_data = installation_progress[install_id]
+                    logs = current_data.get('logs', [])
+                    logs.append(line)
                     
-                    if 'Percentage:' in output:
-                        try:
-                            percent = int(output.split('Percentage:')[1].split('%')[0].strip())
-                            scaled_percent = 15 + (percent * 0.55)  # Scale to 15-70% range
-                            installation_progress[install_id]['progress'] = scaled_percent
-                            installation_progress[install_id]['message'] = f'Downloading ({percent}%)...'
-                        except:
-                            pass
+                    import re
+                    
+                    # Check for download progress
+                    percent_match = re.search(r'(\d+)%', line)
+                    if percent_match and 'Downloading' in line:
+                        percent = int(percent_match.group(1))
+                        scaled_progress = 10 + (percent * 0.6)  # Scale to 10-70%
+                        installation_progress[install_id]['download_progress'] = percent
+                        installation_progress[install_id]['progress'] = scaled_progress
+                        installation_progress[install_id]['message'] = f'Downloading... {percent}%'
+                    
+                    # Check for installation progress
+                    if 'Installing' in line and '%' in line:
+                        install_match = re.search(r'Installing.*?(\d+)%', line)
+                        if install_match:
+                            install_percent = int(install_match.group(1))
+                            scaled_progress = 70 + (install_percent * 0.2)  # Scale to 70-90%
+                            installation_progress[install_id]['progress'] = scaled_progress
+                            installation_progress[install_id]['message'] = f'Installing... {install_percent}%'
+                            installation_progress[install_id]['current_stage'] = 'installing'
+                            installation_progress[install_id]['status'] = 'installing'
+                    
+                    # Check for download size
+                    size_match = re.search(r'Downloading (\d+\.?\d*) (\w+) of (\d+\.?\d*) (\w+)', line)
+                    if size_match:
+                        downloaded = size_match.group(1)
+                        downloaded_unit = size_match.group(2)
+                        total = size_match.group(3)
+                        total_unit = size_match.group(4)
+                        installation_progress[install_id]['downloaded_size'] = f"{downloaded} {downloaded_unit}"
+                        installation_progress[install_id]['total_download_size'] = f"{total} {total_unit}"
+                    
+                    # Check for completion messages (success indicators)
+                    if any(msg in line.lower() for msg in ['installation complete', 'installed', 'completed successfully']):
+                        installation_progress[install_id]['logs'].append(f"✅ {line}")
+                    
+                    # Check for error messages
+                    if any(err in line.lower() for err in ['error:', 'failed:', 'cannot', 'unable']):
+                        installation_progress[install_id]['logs'].append(f"❌ {line}")
+                    
+                    # Update logs (keep last 100)
+                    installation_progress[install_id]['logs'] = logs[-100:]
+                    
+                    # Update stages based on progress
+                    progress = installation_progress[install_id]['progress']
+                    stages = installation_progress[install_id]['stages']
+                    
+                    if progress >= 70 and not stages['installing']['started']:
+                        stages['installing'] = {'started': True, 'completed': False}
+                        installation_progress[install_id]['current_stage'] = 'installing'
+                        installation_progress[install_id]['status'] = 'installing'
+                    
+                    if progress >= 90 and not stages['finalizing']['started']:
+                        stages['finalizing'] = {'started': True, 'completed': False}
+                        installation_progress[install_id]['current_stage'] = 'finalizing'
+                        installation_progress[install_id]['status'] = 'finalizing'
                 
-                # Perform actual installation with progress
-                success, message = PyStore.install_app_with_progress(app_id, download_progress_callback)
+                # Perform actual installation with real-time output
+                success, output = PyStore.install_app_with_realtime_output(app_id, progress_callback)
                 
                 if not success:
+                    # Installation failed
+                    error_message = f"Installation failed: {output[:200]}..." if len(output) > 200 else output
                     installation_progress[install_id].update({
                         'status': 'failed',
-                        'message': f'Installation failed: {message}',
-                        'progress': 100
+                        'message': error_message,
+                        'progress': 0,  # Reset progress on failure
+                        'logs': installation_progress[install_id]['logs'] + [f'❌ ERROR: {error_message}']
                     })
                     return
                 
+                # Installation succeeded
                 installation_progress[install_id].update({
-                    'progress': 70,
-                    'message': 'Download complete, installing files...',
-                    'current_stage': 'installing',
-                    'stages': {
-                        'downloading': {'started': True, 'completed': True},
-                        'installing': {'started': True, 'completed': False}
-                    }
-                })
-                
-                # Phase 3: Installation (70-90%)
-                for i in range(1, 21):
-                    time.sleep(0.2)
-                    installation_progress[install_id]['progress'] = 70 + (i * 1)
-                    installation_progress[install_id]['message'] = f'Installing files ({i * 5}%)...'
-                    installation_progress[install_id]['logs'].append(f'Installed component {i}/20')
-                
-                installation_progress[install_id].update({
-                    'progress': 90,
+                    'status': 'finalizing',
+                    'progress': 95,
                     'message': 'Finalizing installation...',
                     'current_stage': 'finalizing',
                     'stages': {
+                        'preparing': {'started': True, 'completed': True},
+                        'downloading': {'started': True, 'completed': True},
                         'installing': {'started': True, 'completed': True},
                         'finalizing': {'started': True, 'completed': False}
                     }
                 })
                 
-                # Phase 4: Finalizing (90-100%)
                 # Get actual app metadata
                 app_info = PyStore.get_installed_app_info(app_id)
-                if not app_info:
-                    installation_progress[install_id].update({
-                        'status': 'failed',
-                        'message': 'Failed to verify installation',
-                        'progress': 100
-                    })
-                    return
-                
-                installation_progress[install_id]['metadata'] = {
-                    'size': app_info.get('size', '0 MB'),
-                    'version': app_info.get('version', 'unknown')
-                }
                 
                 installation_progress[install_id]['logs'].extend([
-                    'Creating desktop shortcuts',
-                    'Updating application database',
-                    f"Installation verified: {app_id}"
+                    'Creating desktop shortcuts...',
+                    'Updating application database...',
+                    f"✅ Installation verified: {app_id}"
                 ])
                 
+                if app_info:
+                    installation_progress[install_id]['metadata'] = {
+                        'size': app_info.get('size', '0 MB'),
+                        'version': app_info.get('version', 'unknown')
+                    }
+                
+                # Mark as completed
                 installation_progress[install_id].update({
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Installation complete!',
                     'stages': {
+                        'preparing': {'started': True, 'completed': True},
+                        'downloading': {'started': True, 'completed': True},
+                        'installing': {'started': True, 'completed': True},
                         'finalizing': {'started': True, 'completed': True}
                     },
                     'end_time': datetime.now().isoformat()
@@ -200,11 +250,12 @@ def install(request):
                     )
                 
             except Exception as e:
+                # Handle any unexpected errors
                 installation_progress[install_id].update({
                     'status': 'failed',
-                    'message': f'Error: {str(e)}',
-                    'progress': 100,
-                    'logs': installation_progress[install_id]['logs'] + [f'ERROR: {str(e)}'],
+                    'message': f'Unexpected error: {str(e)}',
+                    'progress': 0,
+                    'logs': installation_progress[install_id]['logs'] + [f'❌ ERROR: {str(e)}'],
                     'end_time': datetime.now().isoformat()
                 })
         
@@ -212,6 +263,8 @@ def install(request):
         return redirect('installation_progress', install_id=install_id)
     
     return redirect('home')
+
+# views.py - Update the get_installation_progress function
 
 def get_installation_progress(request, install_id):
     progress_data = installation_progress.get(install_id, {
@@ -228,15 +281,23 @@ def get_installation_progress(request, install_id):
         }
     })
     
-    # Calculate ETA if installation is in progress
-    if progress_data['status'] not in ['completed', 'failed']:
+    # Calculate ETA if installation is in progress and not failed/completed
+    if progress_data['status'] not in ['completed', 'failed', 'unknown'] and progress_data['progress'] > 0:
         try:
             start_time = datetime.fromisoformat(progress_data['start_time'])
             elapsed = (datetime.now() - start_time).total_seconds()
-            remaining = (100 - progress_data['progress']) * (elapsed / max(1, progress_data['progress']))
-            progress_data['eta_seconds'] = int(remaining)
+            if progress_data['progress'] > 0:
+                total_estimated = elapsed * (100 / progress_data['progress'])
+                remaining = total_estimated - elapsed
+                progress_data['eta_seconds'] = max(0, int(remaining))
+            else:
+                progress_data['eta_seconds'] = None
         except:
             progress_data['eta_seconds'] = None
+    
+    # Ensure failed status shows 0 progress
+    if progress_data['status'] == 'failed':
+        progress_data['progress'] = 0
     
     return JsonResponse(progress_data)
 

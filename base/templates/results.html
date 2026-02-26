@@ -53,11 +53,19 @@
                        class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-300">
                         Return Home
                     </a>
-                    <button class="px-6 py-2 border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-300">
+                    <button onclick="launchInstalledApp()" 
+                            class="px-6 py-2 border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-300">
                         Open Application
                     </button>
                 </div>
             </div>
+            
+            <script>
+                function launchInstalledApp() {
+                    // You can implement this to launch the recently installed app
+                    window.location.href = "{% url 'home' %}";
+                }
+            </script>
         
         {% elif error %}
             <!-- Error State -->
@@ -96,45 +104,228 @@
                         <i class="fas fa-search mr-3 text-indigo-600"></i>
                         Results for "{{ app_name }}"
                     </h2>
+                    {% if search_results %}
+                        <p class="text-gray-500 mt-2">{{ search_results|length }} application(s) found</p>
+                    {% endif %}
                 </div>
                 
                 <div class="p-6">
-                    <div class="bg-gray-50 p-4 rounded-lg mb-6 overflow-x-auto">
-                        <pre class="text-sm font-mono text-gray-800 whitespace-pre-wrap">{{ search_results }}</pre>
-                    </div>
-                    
-                    <form method="post" action="{% url 'install' %}">
-                        {% csrf_token %}
-                        <div class="mb-6">
-                            <label for="app_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                Enter Application ID to install
-                            </label>
-                            <div class="mt-1 relative rounded-md shadow-sm">
-                                <input type="text" name="app_id" id="app_id" 
-                                       class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-gray-300 rounded-lg border" 
-                                       placeholder="e.g. com.wps.Office" required>
-                                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                    <span class="text-gray-500 sm:text-sm">
-                                        <i class="fas fa-id-card"></i>
-                                    </span>
+                    {% if search_results %}
+                        <!-- Grid of App Icons -->
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-8">
+                            {% for app in search_results %}
+                                <div class="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                                     onclick="installApp('{{ app.app_id|escapejs }}', '{{ app.name|escapejs }}')">
+                                    <div class="flex flex-col items-center text-center">
+                                        <!-- App Icon -->
+                                        <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-3 shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 overflow-hidden">
+                                            <img src="{{ app.icon_url }}" 
+                                                 alt="{{ app.name }}" 
+                                                 class="w-full h-full object-cover"
+                                                 loading="lazy"
+                                                 onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ app.name|urlencode }}&size=96&background=6366f1&color=fff&rounded=true&bold=true&length=2';">
+                                        </div>
+                                        
+                                        <!-- App Name -->
+                                        <h3 class="font-semibold text-gray-800 mb-1 line-clamp-1">{{ app.name }}</h3>
+                                        
+                                        <!-- Version (if available) -->
+                                        {% if app.version and app.version != 'Unknown' %}
+                                            <p class="text-xs text-gray-400 mb-2">v{{ app.version }}</p>
+                                        {% else %}
+                                            <p class="text-xs text-gray-400 mb-2">{{ app.app_id|truncatechars:20 }}</p>
+                                        {% endif %}
+                                        
+                                        <!-- Description (if available) -->
+                                        {% if app.description %}
+                                            <p class="text-xs text-gray-600 line-clamp-2 mb-3 px-2">{{ app.description }}</p>
+                                        {% endif %}
+                                        
+                                        <!-- Install/Launch Button -->
+                                        <div class="mt-2 w-full">
+                                            {% if app.is_installed %}
+                                                <button class="w-full px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors duration-300 flex items-center justify-center"
+                                                        onclick="event.stopPropagation(); launchApp('{{ app.app_id|escapejs }}')">
+                                                    <i class="fas fa-play mr-1"></i> Launch
+                                                </button>
+                                            {% else %}
+                                                <button class="w-full px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-indigo-700 flex items-center justify-center">
+                                                    <i class="fas fa-download mr-1"></i> Install
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Hidden Forms for Installation and Launch -->
+                        <form id="install-form" method="post" action="{% url 'install' %}" style="display: none;">
+                            {% csrf_token %}
+                            <input type="hidden" name="app_id" id="selected-app-id" value="">
+                        </form>
+                        
+                        
+                        <script>
+                            function installApp(appId, appName) {
+                                // Show a small confirmation or loading state
+                                const button = event.currentTarget.querySelector('button');
+                                if (button) {
+                                    const originalText = button.innerHTML;
+                                    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Installing...';
+                                    button.disabled = true;
+                                }
+                                
+                                // Set the app ID and submit the form
+                                document.getElementById('selected-app-id').value = appId;
+                                document.getElementById('install-form').submit();
+                            }
+                            
+                            function launchApp(appId) {
+                                event.stopPropagation();
+                                document.getElementById('launch-app-id').value = appId;
+                                document.getElementById('launch-form').submit();
+                            }
+                            
+                            // Add keyboard navigation
+                            document.addEventListener('keydown', function(e) {
+                                // Press 'Esc' to go back to home
+                                if (e.key === 'Escape') {
+                                    window.location.href = "{% url 'home' %}";
+                                }
+                            });
+                        </script>
+                        
+                        <!-- Back Button and Additional Info -->
+                        <div class="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <a href="{% url 'home' %}" 
+                               class="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300">
+                                <i class="fas fa-arrow-left mr-2"></i> New Search
+                            </a>
+                            
+                            <div class="text-sm text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Click on any app to install, or press ESC to go back
                             </div>
                         </div>
                         
-                        <div class="flex items-center justify-between">
+                    {% else %}
+                        <!-- No Results State -->
+                        <div class="text-center py-12">
+                            <div class="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                <i class="fas fa-search text-gray-400 text-3xl"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">No results found for "{{ app_name }}"</h3>
+                            <p class="text-gray-500 mb-6 max-w-md mx-auto">
+                                Try checking the spelling or using a more general term. 
+                                You can also browse popular applications on Flathub.
+                            </p>
+                            
+                            <!-- Suggestions -->
+                            <div class="mb-8">
+                                <p class="text-sm text-gray-600 mb-3">Popular searches:</p>
+                                <div class="flex flex-wrap justify-center gap-2">
+                                    <a href="{% url 'home' %}?q=firefox" 
+                                       class="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors duration-300">
+                                        Firefox
+                                    </a>
+                                    <a href="{% url 'home' %}?q=libreoffice" 
+                                       class="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors duration-300">
+                                        LibreOffice
+                                    </a>
+                                    <a href="{% url 'home' %}?q=spotify" 
+                                       class="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors duration-300">
+                                        Spotify
+                                    </a>
+                                    <a href="{% url 'home' %}?q=vscode" 
+                                       class="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors duration-300">
+                                        VS Code
+                                    </a>
+                                    <a href="{% url 'home' %}?q=gimp" 
+                                       class="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors duration-300">
+                                        GIMP
+                                    </a>
+                                </div>
+                            </div>
+                            
                             <a href="{% url 'home' %}" 
-                               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                               class="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-300">
                                 <i class="fas fa-arrow-left mr-2"></i> Back to Search
                             </a>
-                            
-                            <button type="submit" 
-                                    class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 hover:shadow-md">
-                                <i class="fas fa-download mr-2"></i> Install & Run
-                            </button>
                         </div>
-                    </form>
+                    {% endif %}
                 </div>
             </div>
         {% endif %}
     </div>
+
+    <!-- Loading Overlay (shown during installation) -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full mx-4">
+            <div class="text-center">
+                <div class="mx-auto w-16 h-16 mb-4">
+                    <i class="fas fa-download text-indigo-600 text-4xl animate-bounce"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Installing Application</h3>
+                <p id="installing-app-name" class="text-gray-600 mb-4"></p>
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
+                    <div class="bg-indigo-600 h-2 rounded-full animate-pulse" style="width: 60%"></div>
+                </div>
+                <p class="text-sm text-gray-500">Please wait while we install your application...</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Additional custom styles for better animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        /* Line clamp utilities */
+        .line-clamp-1 {
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+        }
+        
+        .line-clamp-2 {
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        /* Smooth transitions */
+        .transition-all {
+            transition-property: all;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 300ms;
+        }
+        
+        /* Hover effects */
+        .group:hover .group-hover\:scale-105 {
+            transform: scale(1.05);
+        }
+        
+        .group:hover .group-hover\:opacity-100 {
+            opacity: 1;
+        }
+        
+        /* Loading spinner animation */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .fa-spin {
+            animation: spin 1s linear infinite;
+        }
+    </style>
 {% endblock %}
