@@ -2,63 +2,108 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import InstalledApp
 from django.http import JsonResponse
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+from .models import InstalledApp
+from .utils import PyStore
 import json
 import time
 from threading import Thread
-from .utils import PyStore
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
-
-
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.utils import timezone
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from .models import InstalledApp
-from django.http import JsonResponse
-import json
-import time
-from threading import Thread
-from .utils import PyStore
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Global dictionary to track installation progress
 installation_progress = {}
 
+
 def home(request):
+    """Home page with search functionality"""
     if request.method == 'POST':
-        app_name = request.POST.get('app_name', '')
+        app_name = request.POST.get('app_name', '').strip()
         if app_name.lower() == 'quit':
             return redirect('home')
         
-        search_results = PyStore.flatpak_search(app_name)
+        if not app_name:
+            return render(request, 'index.html', {'error': 'Please enter an app name'})
+        
+        search_results = PyStore.search(app_name)
         return render(request, 'results.html', {
             'app_name': app_name,
-            'search_results': search_results,  # Now this is a list of dictionaries
+            'search_results': search_results,
             'has_results': len(search_results) > 0
         })
     
-    return render(request, 'index.html')
+    # Get popular apps for home page
+    popular_apps = PyStore.get_popular_apps(limit=6)
+    return render(request, 'index.html', {
+        'popular_apps': popular_apps
+    })
 
 
-# views.py - Updated install function with real progress
+def browse_apps(request):
+    """Browse all available apps with pagination"""
+    page = request.GET.get('page', 1)
+    try:
+        page = int(page)
+    except ValueError:
+        page = 1
+    
+    # Get popular apps (can be extended with pagination)
+    all_apps = PyStore.get_popular_apps(limit=50)
+    
+    # Simple pagination
+    per_page = 12
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    paginated_apps = all_apps[start:end]
+    total_pages = (len(all_apps) + per_page - 1) // per_page
+    
+    return render(request, 'browse.html', {
+        'apps': paginated_apps,
+        'current_page': page,
+        'total_pages': total_pages,
+        'has_prev': page > 1,
+        'has_next': page < total_pages,
+        'prev_page': page - 1,
+        'next_page': page + 1,
+    })
 
-# views.py - Updated install function with proper success/failure handling
+
+def app_detail(request, app_id):
+    """Display detailed information about an app"""
+    try:
+        app_details = PyStore.get_app_details(app_id)
+        
+        if not app_details:
+            messages.error(request, f"App '{app_id}' not found")
+            return redirect('browse_apps')
+        
+        return render(request, 'app_detail.html', {
+            'app': app_details
+        })
+    except Exception as e:
+        logger.error(f"Error getting app details for {app_id}: {e}")
+        messages.error(request, "Error loading app details")
+        return redirect('browse_apps')
+
 
 def install(request):
+    """Handle app installation"""
     if request.method == 'POST':
-        app_id = request.POST.get('app_id', '')
+        app_id = request.POST.get('app_id', '').strip()
         if app_id.lower() == 'quit':
             return redirect('home')
         
+        if not app_id:
+            return JsonResponse({'error': 'No app ID provided'}, status=400)
+        
         install_id = f"{app_id}_{int(time.time())}"
         
-        # Initialize progress with real tracking
+        # Initialize progress tracking
         installation_progress[install_id] = {
             'status': 'initializing',
             'progress': 0,
@@ -230,213 +275,102 @@ def install(request):
                         'downloading': {'started': True, 'completed': True},
                         'installing': {'started': True, 'completed': True},
                         'finalizing': {'started': True, 'completed': True}
-                    },
-                    'end_time': datetime.now().isoformat()
+                    }
                 })
                 
-                # Add to installed apps if user is authenticated
-                if request.user.is_authenticated:
-                    app_name = app_id.split('.')[-1].capitalize()
-                    InstalledApp.objects.update_or_create(
-                        user=request.user,
-                        app_id=app_id,
-                        defaults={
-                            'name': app_name,
-                            'version': installation_progress[install_id]['metadata']['version'],
-                            'size': installation_progress[install_id]['metadata']['size'],
-                            'install_date': timezone.now(),
-                            'status': 'up_to_date'
-                        }
-                    )
-                
             except Exception as e:
-                # Handle any unexpected errors
+                logger.error(f"Installation error: {e}")
                 installation_progress[install_id].update({
                     'status': 'failed',
                     'message': f'Unexpected error: {str(e)}',
                     'progress': 0,
-                    'logs': installation_progress[install_id]['logs'] + [f'❌ ERROR: {str(e)}'],
-                    'end_time': datetime.now().isoformat()
+                    'logs': installation_progress[install_id]['logs'] + [f'❌ FATAL ERROR: {str(e)}']
                 })
         
-        Thread(target=install_thread).start()
-        return redirect('installation_progress', install_id=install_id)
+        # Start installation in background thread
+        thread = Thread(target=install_thread, daemon=True)
+        thread.start()
+        
+        return render(request, 'installation_progress.html', {
+            'install_id': install_id,
+            'app_id': app_id
+        })
     
     return redirect('home')
 
-# views.py - Update the get_installation_progress function
 
-def get_installation_progress(request, install_id):
-    progress_data = installation_progress.get(install_id, {
-        'status': 'unknown',
-        'progress': 0,
-        'message': 'Installation not found',
-        'app_id': '',
-        'logs': [],
-        'stages': {
-            'preparing': {'started': False, 'completed': False},
-            'downloading': {'started': False, 'completed': False},
-            'installing': {'started': False, 'completed': False},
-            'finalizing': {'started': False, 'completed': False}
-        }
-    })
+def installation_progress_api(request, install_id):
+    """API endpoint to get installation progress"""
+    if install_id not in installation_progress:
+        return JsonResponse({'error': 'Installation not found'}, status=404)
     
-    # Calculate ETA if installation is in progress and not failed/completed
-    if progress_data['status'] not in ['completed', 'failed', 'unknown'] and progress_data['progress'] > 0:
-        try:
-            start_time = datetime.fromisoformat(progress_data['start_time'])
-            elapsed = (datetime.now() - start_time).total_seconds()
-            if progress_data['progress'] > 0:
-                total_estimated = elapsed * (100 / progress_data['progress'])
-                remaining = total_estimated - elapsed
-                progress_data['eta_seconds'] = max(0, int(remaining))
-            else:
-                progress_data['eta_seconds'] = None
-        except:
-            progress_data['eta_seconds'] = None
-    
-    # Ensure failed status shows 0 progress
-    if progress_data['status'] == 'failed':
-        progress_data['progress'] = 0
-    
+    progress_data = installation_progress[install_id]
     return JsonResponse(progress_data)
 
-def installation_progress_view(request, install_id):
-    # Verify the installation exists
-    if install_id not in installation_progress:
-        messages.error(request, "Installation session not found")
-        return redirect('home')
-    
-    return render(request, 'installation_progress.html', {
-        'install_id': install_id,
-        'app_id': installation_progress[install_id].get('app_id', '')
-    })
 
-
-
-
-
-def launch_app(request, app_id):
-    PyStore.run_app(app_id)
-    return redirect('home')
-
-def check_flatpak(request):
-    if not PyStore.check_flatpak():
-        results = PyStore.install_flatpak()
-        return render(request, 'results.html', {
-            'flatpak_install': True,
-            'install_results': results
-        })
-    return redirect('home')
-
-
-@login_required
 def installed_apps(request):
-    # Sync with system installed apps
-    if request.method == 'POST' and 'sync' in request.POST:
-        system_apps = PyStore.get_installed_apps()
-        
-        # Remove apps no longer installed
-        current_ids = [app['app_id'] for app in system_apps]
-        InstalledApp.objects.filter(user=request.user).exclude(app_id__in=current_ids).delete()
-        
-        # Add/update installed apps
-        for app_data in system_apps:
-            # Clean up size format (remove units and handle decimals)
-            size_str = app_data.get('size', '0 MB').split()[0]
-            try:
-                size_mb = float(size_str)
-            except ValueError:
-                size_mb = 0.0
-            
-            InstalledApp.objects.update_or_create(
-                user=request.user,  # Now part of the unique constraint
-                app_id=app_data['app_id'],
-                defaults={
-                    'name': app_data['app_id'].split('.')[-1].capitalize(),
-                    'version': app_data.get('version', 'unknown'),
-                    'size': f"{size_mb:.1f} MB" if size_mb > 0 else "0 MB",
-                    'status': 'up_to_date',
-                }
-            )
-        messages.success(request, "Applications successfully synchronized")
-        return redirect('installed')
+    """Display list of installed apps"""
+    try:
+        installed = PyStore.get_installed_apps()
+        return render(request, 'installed.html', {
+            'installed_apps': installed
+        })
+    except Exception as e:
+        logger.error(f"Error getting installed apps: {e}")
+        messages.error(request, "Error loading installed apps")
+        return render(request, 'installed.html', {
+            'installed_apps': []
+        })
 
-    # Bulk actions
+
+def uninstall_app(request, app_id):
+    """Uninstall an application"""
     if request.method == 'POST':
-        selected_ids = request.POST.getlist('selected_ids')
-        
-        if 'uninstall' in request.POST:
-            for app_id in selected_ids:
-                success, message = PyStore.uninstall_app(app_id)
-                if success:
-                    InstalledApp.objects.filter(user=request.user, app_id=app_id).delete()
-                    messages.success(request, f"Successfully uninstalled {app_id}")
-                else:
-                    messages.error(request, f"Failed to uninstall {app_id}: {message}")
-        
-        if 'launch' in request.POST:
-            for app_id in selected_ids:
-                PyStore.run_app(app_id)
-            messages.success(request, f"Launched {len(selected_ids)} application(s)")
-        
-        return redirect('installed')
-
-    apps = InstalledApp.objects.filter(user=request.user)
-    
-    # Calculate total size (handle decimal values)
-    total_size = 0.0
-    for app in apps:
-        if app.size and 'MB' in app.size:
-            try:
-                total_size += float(app.size.split()[0])
-            except (ValueError, IndexError):
-                continue
-    
-    context = {
-        'apps': apps,
-        'total_count': apps.count(),
-        'total_size': f"{total_size:.1f} MB",
-        'recent_count': apps.filter(install_date__gte=timezone.now()-timezone.timedelta(days=7)).count(),
-        'update_count': apps.filter(status='update_available').count(),
-    }
-    return render(request, 'installed.html', context)
-
-@login_required
-def app_detail(request, app_id):
-    app = get_object_or_404(InstalledApp, user=request.user, app_id=app_id)
-    app_info = PyStore.get_installed_app_info(app_id)
-    
-    if request.method == 'POST':
-        if 'uninstall' in request.POST:
+        try:
             success, message = PyStore.uninstall_app(app_id)
             if success:
-                app.delete()
-                return redirect('installed')
+                messages.success(request, f"Successfully uninstalled {app_id}")
             else:
-                messages.error(request, f"Failed to uninstall: {message}")
+                messages.error(request, f"Failed to uninstall {app_id}: {message}")
+        except Exception as e:
+            logger.error(f"Error uninstalling {app_id}: {e}")
+            messages.error(request, "Error uninstalling app")
         
-        if 'launch' in request.POST:
-            PyStore.run_app(app_id)
-            return redirect('installed')
+        return redirect('installed_apps')
     
-    context = {
-        'app': app,
-        'app_info': app_info,
-    }
-    return render(request, 'app_detail.html', context)
+    return redirect('home')
+
+
+def run_app(request, app_id):
+    """Run an installed application"""
+    try:
+        success = PyStore.run_app(app_id)
+        if success:
+            messages.success(request, f"Launching {app_id}...")
+        else:
+            messages.error(request, f"Failed to launch {app_id}")
+    except Exception as e:
+        logger.error(f"Error running {app_id}: {e}")
+        messages.error(request, "Error launching app")
+    
+    return redirect('installed_apps')
 
 
 def signup(request):
+    """User signup view"""
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
-            return redirect('home')  # Or wherever you want to redirect after signup
+            messages.success(request, 'Account created successfully!')
+            return redirect('home')
     else:
         form = UserCreationForm()
+    
     return render(request, 'signup.html', {'form': form})
 
+
 def about(request):
+    """About page"""
     return render(request, 'about.html')

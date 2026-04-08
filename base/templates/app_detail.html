@@ -1,104 +1,175 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="animate-fade-in">
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <!-- App Header -->
-        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 h-16 w-16 bg-white/20 rounded-lg flex items-center justify-center mr-4">
-                        <i class="fas fa-{{ app.icon }} text-2xl"></i>
+    <div class="animate-fade-in">
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <!-- Header Section -->
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-6">
+                        <!-- App Icon -->
+                        <div class="w-32 h-32 rounded-2xl bg-white/20 flex items-center justify-center shadow-lg overflow-hidden">
+                            <img src="{{ app.icon_url }}" 
+                                 alt="{{ app.name }}" 
+                                 class="w-full h-full object-cover"
+                                 onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ app.name|urlencode }}&size=128&background=6366f1&color=fff&rounded=true&bold=true&length=2';">
+                        </div>
+                        
+                        <!-- App Info -->
+                        <div>
+                            <h1 class="text-4xl font-bold mb-2">{{ app.name }}</h1>
+                            <p class="text-lg text-white/80 mb-4">{{ app.summary }}</p>
+                            
+                            <!-- Metadata -->
+                            <div class="flex flex-wrap gap-4 text-sm">
+                                {% if app.version and app.version != 'Unknown' %}
+                                    <div>
+                                        <span class="text-white/70">Version:</span>
+                                        <span class="font-semibold">{{ app.version }}</span>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if app.developer_name and app.developer_name != 'Unknown' %}
+                                    <div>
+                                        <span class="text-white/70">Developer:</span>
+                                        <span class="font-semibold">{{ app.developer_name }}</span>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if app.license and app.license != 'Unknown' %}
+                                    <div>
+                                        <span class="text-white/70">License:</span>
+                                        <span class="font-semibold">{{ app.license }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col space-y-3">
+                        {% if app.is_installed %}
+                            <form method="post" action="{% url 'run_app' app.app_id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors duration-300 flex items-center">
+                                    <i class="fas fa-play mr-2"></i> Launch App
+                                </button>
+                            </form>
+                            
+                            <form method="post" action="{% url 'uninstall_app' app.app_id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors duration-300 flex items-center"
+                                        onclick="return confirm('Are you sure you want to uninstall this app?')">
+                                    <i class="fas fa-trash mr-2"></i> Uninstall
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{% url 'install' %}" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="app_id" value="{{ app.app_id }}">
+                                <button type="submit" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors duration-300 flex items-center">
+                                    <i class="fas fa-download mr-2"></i> Install App
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Content Section -->
+            <div class="p-8">
+                <!-- Description -->
+                {% if app.description %}
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">About</h2>
+                        <p class="text-gray-600 leading-relaxed">{{ app.description }}</p>
+                    </div>
+                {% endif %}
+                
+                <!-- Categories -->
+                {% if app.categories %}
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Categories</h2>
+                        <div class="flex flex-wrap gap-2">
+                            {% for category in app.categories %}
+                                <span class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
+                                    {{ category }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Screenshots -->
+                {% if app.screenshots %}
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Screenshots</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {% for screenshot in app.screenshots %}
+                                <div class="rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
+                                    <img src="{{ screenshot }}" 
+                                         alt="Screenshot" 
+                                         class="w-full h-auto object-cover"
+                                         loading="lazy">
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Additional Info -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-200">
+                    <!-- Rating & Downloads -->
                     <div>
-                        <h2 class="text-2xl font-bold">{{ app.name }}</h2>
-                        <p class="text-indigo-100">{{ app.app_id }}</p>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Popularity</h3>
+                        {% if app.rating %}
+                            <div class="mb-4">
+                                <p class="text-gray-600 mb-2">Rating: <span class="font-semibold">{{ app.rating|floatformat:1 }}/5.0</span></p>
+                                <div class="flex items-center">
+                                    {% for i in "12345" %}
+                                        {% if i|add:0 <= app.rating %}
+                                            <i class="fas fa-star text-yellow-400"></i>
+                                        {% else %}
+                                            <i class="fas fa-star text-gray-300"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if app.download_count %}
+                            <p class="text-gray-600">
+                                Downloads: <span class="font-semibold">{{ app.download_count|floatformat:0 }}</span>
+                            </p>
+                        {% endif %}
                     </div>
-                </div>
-                <div class="flex space-x-3">
-                    <form method="post">
-                        {% csrf_token %}
-                        <button type="submit" name="launch"
-                                class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg flex items-center transition-colors">
-                            <i class="fas fa-play mr-2"></i> Launch
-                        </button>
-                    </form>
+                    
+                    <!-- App ID -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Technical Info</h3>
+                        <p class="text-gray-600 mb-2">
+                            <span class="text-gray-500">App ID:</span>
+                            <code class="bg-gray-100 px-2 py-1 rounded text-sm">{{ app.app_id }}</code>
+                        </p>
+                        {% if app.url %}
+                            <p class="text-gray-600">
+                                <span class="text-gray-500">Website:</span>
+                                <a href="{{ app.url }}" target="_blank" class="text-indigo-600 hover:text-indigo-700">
+                                    Visit Website <i class="fas fa-external-link-alt ml-1"></i>
+                                </a>
+                            </p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- App Details -->
-        <div class="p-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <!-- Info Card -->
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h3 class="font-medium text-gray-900 mb-3">Application Info</h3>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Version:</span>
-                            <span class="font-medium">{{ app.version }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Size:</span>
-                            <span class="font-medium">{{ app.size }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Installed:</span>
-                            <span class="font-medium">{{ app.install_date|date:"M d, Y" }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Status:</span>
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {% if app.status == 'up_to_date' %}bg-green-100 text-green-800
-                                {% elif app.status == 'update_available' %}bg-yellow-100 text-yellow-800
-                                {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                {{ app.get_status_display }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Actions Card -->
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h3 class="font-medium text-gray-900 mb-3">Actions</h3>
-                    <div class="space-y-3">
-                        <form method="post">
-                            {% csrf_token %}
-                            <button type="submit" name="launch"
-                                    class="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
-                                <i class="fas fa-play mr-2"></i> Launch Application
-                            </button>
-                        </form>
-                        <form method="post">
-                            {% csrf_token %}
-                            <button type="submit" name="uninstall" onclick="return confirm('Are you sure you want to uninstall this application?')"
-                                    class="w-full flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
-                                <i class="fas fa-trash mr-2"></i> Uninstall
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- More Info Card -->
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h3 class="font-medium text-gray-900 mb-3">Additional Information</h3>
-                    {% if app_info %}
-                    <div class="text-sm font-mono bg-gray-800 text-gray-100 p-3 rounded overflow-x-auto">
-                        <pre>{{ app_info }}</pre>
-                    </div>
-                    {% else %}
-                    <p class="text-gray-600">No additional information available</p>
-                    {% endif %}
-                </div>
-            </div>
+        
+        <!-- Back Button -->
+        <div class="mt-8">
+            <a href="{% url 'browse_apps' %}" 
+               class="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors duration-300">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Browse
+            </a>
         </div>
     </div>
-
-    <div class="mt-6">
-        <a href="{% url 'installed' %}" 
-           class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50">
-            <i class="fas fa-arrow-left mr-2"></i> Back to Installed Apps
-        </a>
-    </div>
-</div>
 {% endblock %}
